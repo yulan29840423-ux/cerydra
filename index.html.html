@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>璀璨宝石 Splendor - 在线多人游戏</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    // Gem colors and their display properties
+    const GEMS = {
+      white: { name: '钻石', color: '#f8f8f8', border: '#ccc', emoji: '💎' },
+      blue: { name: '蓝宝石', color: '#2563eb', border: '#1d4ed8', emoji: '🔵' },
+      green: { name: '祖母绿', color: '#16a34a', border: '#15803d', emoji: '🟢' },
+      red: { name: '红宝石', color: '#dc2626', border: '#b91c1c', emoji: '🔴' },
+      black: { name: '黑曜石', color: '#1f2937', border: '#111827', emoji: '⚫' },
+      gold: { name: '黄金', color: '#fbbf24', border: '#f59e0b', emoji: '🟡' }
+    };
+
+    const GEM_TYPES = ['white', 'blue', 'green', 'red', 'black'];
+
+    // Card data
+    const LEVEL1_CARDS = [
+      { bonus: 'black', points: 0, cost: { white: 1, blue: 1, green: 1, red: 1 } },
+      { bonus: 'black', points: 0, cost: { white: 1, blue: 2, green: 1, red: 1 } },
+      { bonus: 'black', points: 0, cost: { white: 2, blue: 2, red: 1 } },
+      { bonus: 'black', points: 0, cost: { green: 1, red: 3, black: 1 } },
+      { bonus: 'black', points: 0, cost: { green: 2, red: 1 } },
+      { bonus: 'black', points: 0, cost: { white: 2, green: 2 } },
+      { bonus: 'black', points: 0, cost: { green: 3 } },
+      { bonus: 'black', points: 1, cost: { blue: 4 } },
+      { bonus: 'blue', points: 0, cost: { white: 1, green: 1, red: 1, black: 1 } },
+      { bonus: 'blue', points: 0, cost: { white: 1, green: 1, red: 2, black: 1 } },
+      { bonus: 'blue', points: 0, cost: { white: 1, green: 2, red: 2 } },
+      { bonus: 'blue', points: 0, cost: { blue: 1, green: 3, red: 1 } },
+      { bonus: 'blue', points: 0, cost: { white: 1, black: 2 } },
+      { bonus: 'blue', points: 0, cost: { green: 2, black: 2 } },
+      { bonus: 'blue', points: 0, cost: { black: 3 } },
+      { bonus: 'blue', points: 1, cost: { red: 4 } },
+      { bonus: 'white', points: 0, cost: { blue: 1, green: 1, red: 1, black: 1 } },
+      { bonus: 'white', points: 0, cost: { blue: 1, green: 2, red: 1, black: 1 } },
+      { bonus: 'white', points: 0, cost: { blue: 2, green: 2, black: 1 } },
+      { bonus: 'white', points: 0, cost: { white: 3, blue: 1, black: 1 } },
+      { bonus: 'white', points: 0, cost: { red: 2, black: 1 } },
+      { bonus: 'white', points: 0, cost: { blue: 2, black: 2 } },
+      { bonus: 'white', points: 0, cost: { blue: 3 } },
+      { bonus: 'white', points: 1, cost: { green: 4 } },
+      { bonus: 'green', points: 0, cost: { white: 1, blue: 1, red: 1, black: 1 } },
+      { bonus: 'green', points: 0, cost: { white: 1, blue: 1, red: 1, black: 2 } },
+      { bonus: 'green', points: 0, cost: { blue: 1, red: 2, black: 2 } },
+      { bonus: 'green', points: 0, cost: { white: 1, blue: 3, green: 1 } },
+      { bonus: 'green', points: 0, cost: { white: 2, blue: 1 } },
+      { bonus: 'green', points: 0, cost: { blue: 2, red: 2 } },
+      { bonus: 'green', points: 0, cost: { red: 3 } },
+      { bonus: 'green', points: 1, cost: { black: 4 } },
+      { bonus: 'red', points: 0, cost: { white: 1, blue: 1, green: 1, black: 1 } },
+      { bonus: 'red', points: 0, cost: { white: 2, blue: 1, green: 1, black: 1 } },
+      { bonus: 'red', points: 0, cost: { white: 2, green: 1, black: 2 } },
+      { bonus: 'red', points: 0, cost: { white: 1, red: 1, black: 3 } },
+      { bonus: 'red', points: 0, cost: { blue: 2, green: 1 } },
+      { bonus: 'red', points: 0, cost: { white: 2, red: 2 } },
+      { bonus: 'red', points: 0, cost: { white: 3 } },
+      { bonus: 'red', points: 1, cost: { white: 4 } },
+    ];
+
+    const LEVEL2_CARDS = [
+      { bonus: 'black', points: 1, cost: { white: 3, blue: 2, green: 2 } },
+      { bonus: 'black', points: 1, cost: { white: 3, green: 3, black: 2 } },
+      { bonus: 'black', points: 2, cost: { blue: 1, green: 4, red: 2 } },
+      { bonus: 'black', points: 2, cost: { green: 5, red: 3 } },
+      { bonus: 'black', points: 2, cost: { white: 5 } },
+      { bonus: 'black', points: 3, cost: { black: 6 } },
+      { bonus: 'blue', points: 1, cost: { blue: 2, green: 2, red: 3 } },
+      { bonus: 'blue', points: 1, cost: { blue: 2, green: 3, black: 3 } },
+      { bonus: 'blue', points: 2, cost: { white: 5, blue: 3 } },
+      { bonus: 'blue', points: 2, cost: { white: 2, red: 1, black: 4 } },
+      { bonus: 'blue', points: 2, cost: { red: 5 } },
+      { bonus: 'blue', points: 3, cost: { blue: 6 } },
+      { bonus: 'white', points: 1, cost: { green: 3, red: 2, black: 2 } },
+      { bonus: 'white', points: 1, cost: { white: 2, blue: 3, red: 3 } },
+      { bonus: 'white', points: 2, cost: { green: 1, red: 4, black: 2 } },
+      { bonus: 'white', points: 2, cost: { red: 5, black: 3 } },
+      { bonus: 'white', points: 2, cost: { black: 5 } },
+      { bonus: 'white', points: 3, cost: { white: 6 } },
+      { bonus: 'green', points: 1, cost: { white: 3, green: 2, red: 3 } },
+      { bonus: 'green', points: 1, cost: { white: 2, blue: 3, black: 2 } },
+      { bonus: 'green', points: 2, cost: { white: 4, blue: 2, black: 1 } },
+      { bonus: 'green', points: 2, cost: { blue: 5, green: 3 } },
+      { bonus: 'green', points: 2, cost: { blue: 5 } },
+      { bonus: 'green', points: 3, cost: { green: 6 } },
+      { bonus: 'red', points: 1, cost: { white: 2, red: 2, black: 3 } },
+      { bonus: 'red', points: 1, cost: { blue: 3, red: 2, black: 3 } },
+      { bonus: 'red', points: 2, cost: { white: 1, blue: 4, green: 2 } },
+      { bonus: 'red', points: 2, cost: { white: 3, black: 5 } },
+      { bonus: 'red', points: 2, cost: { green: 5 } },
+      { bonus: 'red', points: 3, cost: { red: 6 } },
+    ];
+
+    const LEVEL3_CARDS = [
+      { bonus: 'black', points: 3, cost: { white: 3, blue: 3, green: 5, red: 3 } },
+      { bonus: 'black', points: 4, cost: { red: 7 } },
+      { bonus: 'black', points: 4, cost: { green: 3, red: 6, black: 3 } },
+      { bonus: 'black', points: 5, cost: { red: 7, black: 3 } },
+      { bonus: 'blue', points: 3, cost: { white: 3, green: 3, red: 3, black: 5 } },
+      { bonus: 'blue', points: 4, cost: { white: 7 } },
+      { bonus: 'blue', points: 4, cost: { white: 6, blue: 3, black: 3 } },
+      { bonus: 'blue', points: 5, cost: { white: 7, blue: 3 } },
+      { bonus: 'white', points: 3, cost: { blue: 3, green: 3, red: 5, black: 3 } },
+      { bonus: 'white', points: 4, cost: { black: 7 } },
+      { bonus: 'white', points: 4, cost: { white: 3, red: 3, black: 6 } },
+      { bonus: 'white', points: 5, cost: { white: 3, black: 7 } },
+      { bonus: 'green', points: 3, cost: { white: 5, blue: 3, red: 3, black: 3 } },
+      { bonus: 'green', points: 4, cost: { blue: 7 } },
+      { bonus: 'green', points: 4, cost: { white: 3, blue: 6, green: 3 } },
+      { bonus: 'green', points: 5, cost: { blue: 7, green: 3 } },
+      { bonus: 'red', points: 3, cost: { white: 3, blue: 5, green: 3, black: 3 } },
+      { bonus: 'red', points: 4, cost: { green: 7 } },
+      { bonus: 'red', points: 4, cost: { blue: 3, green: 6, red: 3 } },
+      { bonus: 'red', points: 5, cost: { green: 7, red: 3 } },
+    ];
+
+    const NOBLES = [
+      { points: 3, requirement: { white: 4, blue: 4 } },
+      { points: 3, requirement: { blue: 4, green: 4 } },
+      { points: 3, requirement: { green: 4, red: 4 } },
+      { points: 3, requirement: { red: 4, black: 4 } },
+      { points: 3, requirement: { white: 4, black: 4 } },
+      { points: 3, requirement: { white: 3, blue: 3, black: 3 } },
+      { points: 3, requirement: { blue: 3, green: 3, red: 3 } },
+      { points: 3, requirement: { green: 3, red: 3, black: 3 } },
+      { points: 3, requirement: { white: 3, red: 3, black: 3 } },
+      { points: 3, requirement: { white: 3, blue: 3, green: 3 } },
+    ];
+
+    // Seeded random for consistent shuffling across clients
+    const seededRandom = (seed) => {
+      const x = Math.sin(seed++) * 10000;
+      return x - Math.floor(x);
+    };
+
+    const shuffle = (array, seed) => {
+      const newArray = [...array];
+      let currentSeed = seed;
+      for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(seededRandom(currentSeed++) * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+        currentSeed++;
+      }
+      return newArray;
+    };
+
+    const generateRoomCode = () => {
+      return Math.random().toString(36).substring(2, 6).toUpperCase();
+    };
+
+    const initializeGame = (playerCount, seed) => {
+      const gemCount = playerCount === 2 ? 4 : playerCount === 3 ? 5 : 7;
+      
+      const gems = {};
+      GEM_TYPES.forEach(gem => gems[gem] = gemCount);
+      gems.gold = 5;
+
+      const level1Deck = shuffle([...LEVEL1_CARDS].map((c, i) => ({ ...c, id: `l1-${i}`, level: 1 })), seed);
+      const level2Deck = shuffle([...LEVEL2_CARDS].map((c, i) => ({ ...c, id: `l2-${i}`, level: 2 })), seed + 100);
+      const level3Deck = shuffle([...LEVEL3_CARDS].map((c, i) => ({ ...c, id: `l3-${i}`, level: 3 })), seed + 200);
+      const nobles = shuffle([...NOBLES].map((n, i) => ({ ...n, id: `n-${i}` })), seed + 300).slice(0, playerCount + 1);
+
+      const players = Array(playerCount).fill(null).map((_, i) => ({
+        id: i,
+        name: `玩家 ${i + 1}`,
+        gems: { white: 0, blue: 0, green: 0, red: 0, black: 0, gold: 0 },
+        cards: [],
+        reserved: [],
+        nobles: [],
+        connected: false
+      }));
+
+      return {
+        gems,
+        level1Deck,
+        level2Deck,
+        level3Deck,
+        level1Display: level1Deck.splice(0, 4),
+        level2Display: level2Deck.splice(0, 4),
+        level3Display: level3Deck.splice(0, 4),
+        nobles,
+        players,
+        currentPlayer: 0,
+        phase: 'waiting',
+        winner: null,
+        lastRound: false,
+        lastRoundStartPlayer: null,
+        log: ['等待玩家加入...'],
+        seed
+      };
+    };
+
+    // Components
+    const GemToken = ({ type, count, onClick, selectable, selected }) => {
+      const gem = GEMS[type];
+      return (
+        <div
+          onClick={selectable ? onClick : undefined}
+          className={`
+            relative w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center
+            transition-all duration-200 select-none
+            ${selectable ? 'cursor-pointer hover:scale-110' : ''}
+            ${selected ? 'ring-4 ring-yellow-400 scale-110' : ''}
+            ${count === 0 ? 'opacity-30' : ''}
+          `}
+          style={{
+            backgroundColor: gem.color,
+            border: `3px solid ${gem.border}`,
+            boxShadow: count > 0 ? '0 4px 6px rgba(0,0,0,0.3)' : 'none'
+          }}
+        >
+          <span className={`font-bold text-sm sm:text-lg ${type === 'white' || type === 'gold' ? 'text-gray-800' : 'text-white'}`}>
+            {count}
+          </span>
+        </div>
+      );
+    };
+
+    const Card = ({ card, onClick, canAfford, isReserved, small }) => {
+      if (!card) return <div className={`${small ? 'w-16 h-24' : 'w-20 h-28 sm:w-24 sm:h-32'} bg-gray-700 rounded-lg opacity-50`} />;
+      
+      const gem = GEMS[card.bonus];
+      const levelColors = {
+        1: 'from-green-800 to-green-600',
+        2: 'from-yellow-700 to-yellow-500',
+        3: 'from-blue-800 to-blue-600'
+      };
+
+      return (
+        <div
+          onClick={onClick}
+          className={`
+            ${small ? 'w-16 h-24' : 'w-20 h-28 sm:w-24 sm:h-32'} rounded-lg overflow-hidden cursor-pointer
+            transition-all duration-200 hover:scale-105 hover:shadow-xl
+            ${canAfford ? 'ring-2 ring-green-400' : ''}
+            ${isReserved ? 'ring-2 ring-yellow-400' : ''}
+          `}
+          style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}
+        >
+          <div className={`h-full bg-gradient-to-br ${levelColors[card.level]} p-1.5 sm:p-2 flex flex-col`}>
+            <div className="flex justify-between items-start">
+              <div
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full"
+                style={{ backgroundColor: gem.color, border: `2px solid ${gem.border}` }}
+              />
+              {card.points > 0 && (
+                <span className="text-white font-bold text-base sm:text-lg">{card.points}</span>
+              )}
+            </div>
+            <div className="flex-1" />
+            <div className="flex flex-wrap gap-0.5 sm:gap-1 justify-center">
+              {Object.entries(card.cost).map(([gemType, count]) => (
+                count > 0 && (
+                  <div
+                    key={gemType}
+                    className="w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-xs font-bold"
+                    style={{
+                      backgroundColor: GEMS[gemType].color,
+                      border: `1px solid ${GEMS[gemType].border}`,
+                      color: gemType === 'white' ? '#333' : '#fff'
+                    }}
+                  >
+                    {count}
+                  </div>
+                )
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const Noble = ({ noble, canClaim }) => {
+      if (!noble) return null;
+      
+      return (
+        <div
+          className={`
+            w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-gradient-to-br from-purple-800 to-purple-600
+            p-1.5 sm:p-2 flex flex-col items-center justify-between
+            ${canClaim ? 'ring-2 ring-yellow-400 animate-pulse' : ''}
+          `}
+        >
+          <span className="text-white font-bold text-sm sm:text-base">{noble.points}分</span>
+          <div className="flex flex-wrap gap-0.5 sm:gap-1 justify-center">
+            {Object.entries(noble.requirement).map(([gemType, count]) => (
+              count > 0 && (
+                <div
+                  key={gemType}
+                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full flex items-center justify-center text-xs font-bold"
+                  style={{
+                    backgroundColor: GEMS[gemType].color,
+                    border: `1px solid ${GEMS[gemType].border}`,
+                    color: gemType === 'white' ? '#333' : '#fff'
+                  }}
+                >
+                  {count}
+                </div>
+              )
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    const PlayerBoard = ({ player, isCurrentPlayer, isLocalPlayer, compact }) => {
+      const totalGems = Object.values(player.gems).reduce((a, b) => a + b, 0);
+      const bonuses = {};
+      GEM_TYPES.forEach(gem => bonuses[gem] = 0);
+      player.cards.forEach(card => bonuses[card.bonus]++);
+      
+      const points = player.cards.reduce((sum, c) => sum + c.points, 0) +
+                     player.nobles.reduce((sum, n) => sum + n.points, 0);
+
+      return (
+        <div
+          className={`
+            p-2 sm:p-3 rounded-xl transition-all
+            ${isCurrentPlayer ? 'bg-gradient-to-r from-yellow-900/50 to-orange-900/50 ring-2 ring-yellow-500' : 'bg-gray-800/50'}
+            ${isLocalPlayer ? 'border-2 border-blue-500' : ''}
+          `}
+        >
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="font-bold text-white text-sm sm:text-base">{player.name}</span>
+            <span className="bg-purple-600 px-2 py-0.5 rounded text-white text-xs sm:text-sm">{points}分</span>
+            {isCurrentPlayer && <span className="text-yellow-400 text-xs sm:text-sm">◀ 回合</span>}
+            {isLocalPlayer && <span className="text-blue-400 text-xs sm:text-sm">（你）</span>}
+            {!player.connected && <span className="text-red-400 text-xs sm:text-sm">离线</span>}
+          </div>
+          
+          <div className="flex gap-2 sm:gap-4 flex-wrap">
+            <div>
+              <div className="text-xs text-gray-400 mb-1">宝石 ({totalGems}/10)</div>
+              <div className="flex gap-0.5 sm:gap-1">
+                {[...GEM_TYPES, 'gold'].map(gemType => (
+                  <div
+                    key={gemType}
+                    className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                    style={{
+                      backgroundColor: GEMS[gemType].color,
+                      border: `1px solid ${GEMS[gemType].border}`,
+                      color: gemType === 'white' || gemType === 'gold' ? '#333' : '#fff',
+                      opacity: player.gems[gemType] === 0 ? 0.3 : 1
+                    }}
+                  >
+                    {player.gems[gemType]}
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <div className="text-xs text-gray-400 mb-1">卡牌</div>
+              <div className="flex gap-0.5 sm:gap-1">
+                {GEM_TYPES.map(gemType => (
+                  <div
+                    key={gemType}
+                    className="w-5 h-5 sm:w-6 sm:h-6 rounded flex items-center justify-center text-xs font-bold"
+                    style={{
+                      backgroundColor: GEMS[gemType].color,
+                      border: `1px solid ${GEMS[gemType].border}`,
+                      color: gemType === 'white' ? '#333' : '#fff',
+                      opacity: bonuses[gemType] === 0 ? 0.3 : 1
+                    }}
+                  >
+                    {bonuses[gemType]}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {player.reserved.length > 0 && (
+              <div>
+                <div className="text-xs text-gray-400 mb-1">保留</div>
+                <div className="flex gap-0.5">
+                  {player.reserved.map((card, i) => (
+                    <div
+                      key={i}
+                      className="w-5 h-5 sm:w-6 sm:h-6 rounded flex items-center justify-center text-xs"
+                      style={{
+                        backgroundColor: GEMS[card.bonus].color,
+                        border: `1px solid ${GEMS[card.bonus].border}`
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {player.nobles.length > 0 && (
+              <div>
+                <div className="text-xs text-gray-400 mb-1">贵族</div>
+                <div className="flex gap-0.5">
+                  {player.nobles.map((noble, i) => (
+                    <div key={i} className="w-5 h-5 sm:w-6 sm:h-6 rounded bg-purple-600 flex items-center justify-center text-xs text-white font-bold">
+                      {noble.points}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // Main Game Component
+    function Splendor() {
+      const [screen, setScreen] = useState('menu');
+      const [roomCode, setRoomCode] = useState('');
+      const [inputRoomCode, setInputRoomCode] = useState('');
+      const [playerName, setPlayerName] = useState('');
+      const [localPlayerId, setLocalPlayerId] = useState(0);
+      const [playerCount, setPlayerCount] = useState(2);
+      const [gameState, setGameState] = useState(null);
+      const [selectedGems, setSelectedGems] = useState({});
+      const [actionMode, setActionMode] = useState(null);
+      const [error, setError] = useState('');
+      const [connectionStatus, setConnectionStatus] = useState('disconnected');
+      
+      const peerRef = useRef(null);
+      const connectionsRef = useRef([]);
+      const isHostRef = useRef(false);
+
+      // P2P Communication
+      const broadcastState = useCallback((state) => {
+        const message = JSON.stringify({ type: 'state', data: state });
+        connectionsRef.current.forEach(conn => {
+          if (conn.open) {
+            conn.send(message);
+          }
+        });
+      }, []);
+
+      const sendAction = useCallback((action) => {
+        const message = JSON.stringify({ type: 'action', data: action });
+        if (isHostRef.current) {
+          handleAction(action);
+        } else {
+          connectionsRef.current.forEach(conn => {
+            if (conn.open) {
+              conn.send(message);
+            }
+          });
+        }
+      }, []);
+
+      const handleAction = useCallback((action) => {
+        setGameState(prevState => {
+          if (!prevState) return prevState;
+          const newState = JSON.parse(JSON.stringify(prevState));
+          
+          switch (action.type) {
+            case 'takeGems':
+              return handleTakeGems(newState, action);
+            case 'buyCard':
+              return handleBuyCard(newState, action);
+            case 'reserveCard':
+              return handleReserveCard(newState, action);
+            case 'playerJoin':
+              newState.players[action.playerId].name = action.name;
+              newState.players[action.playerId].connected = true;
+              newState.log.push(`${action.name} 加入了游戏`);
+              if (newState.players.filter(p => p.connected).length === newState.players.length) {
+                newState.phase = 'playing';
+                newState.log.push('所有玩家已就位，游戏开始！');
+              }
+              return newState;
+            default:
+              return prevState;
+          }
+        });
+      }, []);
+
+      useEffect(() => {
+        if (gameState && isHostRef.current) {
+          broadcastState(gameState);
+        }
+      }, [gameState, broadcastState]);
+
+      const handleTakeGems = (state, action) => {
+        const player = state.players[action.playerId];
+        Object.entries(action.gems).forEach(([gemType, amount]) => {
+          state.gems[gemType] -= amount;
+          player.gems[gemType] += amount;
+        });
+
+        let totalGems = Object.values(player.gems).reduce((a, b) => a + b, 0);
+        if (totalGems > 10) {
+          let excess = totalGems - 10;
+          for (const gemType of [...GEM_TYPES, 'gold']) {
+            while (excess > 0 && player.gems[gemType] > 0) {
+              player.gems[gemType]--;
+              state.gems[gemType]++;
+              excess--;
+            }
+          }
+        }
+
+        state.log.push(`${player.name} 拿取了宝石`);
+        return endTurn(state);
+      };
+
+      const handleBuyCard = (state, action) => {
+        const player = state.players[action.playerId];
+        const card = action.fromReserve 
+          ? player.reserved.find(c => c.id === action.cardId)
+          : state[`level${action.level}Display`].find(c => c.id === action.cardId);
+        
+        if (!card) return state;
+
+        // Pay for card
+        for (const [gemType, cost] of Object.entries(card.cost)) {
+          let remaining = cost;
+          const cardBonus = player.cards.filter(c => c.bonus === gemType).length;
+          remaining -= cardBonus;
+          
+          if (remaining > 0) {
+            const fromGems = Math.min(remaining, player.gems[gemType]);
+            player.gems[gemType] -= fromGems;
+            state.gems[gemType] += fromGems;
+            remaining -= fromGems;
+          }
+          
+          if (remaining > 0) {
+            player.gems.gold -= remaining;
+            state.gems.gold += remaining;
+          }
+        }
+
+        player.cards.push(card);
+
+        if (action.fromReserve) {
+          player.reserved = player.reserved.filter(c => c.id !== card.id);
+        } else {
+          const displayKey = `level${card.level}Display`;
+          const deckKey = `level${card.level}Deck`;
+          state[displayKey] = state[displayKey].filter(c => c.id !== card.id);
+          if (state[deckKey].length > 0) {
+            state[displayKey].push(state[deckKey].shift());
+          }
+        }
+
+        state.log.push(`${player.name} 购买了一张${card.points}分的${GEMS[card.bonus].name}卡`);
+        checkNobles(state, player);
+        checkWinCondition(state);
+        return endTurn(state);
+      };
+
+      const handleReserveCard = (state, action) => {
+        const player = state.players[action.playerId];
+        
+        if (player.reserved.length >= 3) return state;
+
+        let reservedCard;
+        if (action.fromDeck) {
+          const deckKey = `level${action.level}Deck`;
+          if (state[deckKey].length === 0) return state;
+          reservedCard = state[deckKey].shift();
+        } else {
+          const displayKey = `level${action.level}Display`;
+          reservedCard = state[displayKey].find(c => c.id === action.cardId);
+          if (!reservedCard) return state;
+          
+          const deckKey = `level${action.level}Deck`;
+          state[displayKey] = state[displayKey].filter(c => c.id !== action.cardId);
+          if (state[deckKey].length > 0) {
+            state[displayKey].push(state[deckKey].shift());
+          }
+        }
+
+        player.reserved.push(reservedCard);
+
+        if (state.gems.gold > 0) {
+          state.gems.gold--;
+          player.gems.gold++;
+        }
+
+        state.log.push(`${player.name} 保留了一张卡牌`);
+        return endTurn(state);
+      };
+
+      const checkNobles = (state, player) => {
+        const bonuses = {};
+        GEM_TYPES.forEach(gem => bonuses[gem] = 0);
+        player.cards.forEach(card => bonuses[card.bonus]++);
+
+        for (let i = state.nobles.length - 1; i >= 0; i--) {
+          const noble = state.nobles[i];
+          const canClaim = Object.entries(noble.requirement).every(
+            ([gemType, count]) => (bonuses[gemType] || 0) >= count
+          );
+          if (canClaim) {
+            player.nobles.push(noble);
+            state.nobles.splice(i, 1);
+            state.log.push(`${player.name} 获得了贵族青睐！+${noble.points}分`);
+            break;
+          }
+        }
+      };
+
+      const checkWinCondition = (state) => {
+        const player = state.players[state.currentPlayer];
+        const points = player.cards.reduce((sum, c) => sum + c.points, 0) +
+                       player.nobles.reduce((sum, n) => sum + n.points, 0);
+        
+        if (points >= 15 && !state.lastRound) {
+          state.lastRound = true;
+          state.lastRoundStartPlayer = state.currentPlayer;
+          state.log.push(`${player.name} 达到15分！最后一轮开始！`);
+        }
+      };
+
+      const endTurn = (state) => {
+        const nextPlayer = (state.currentPlayer + 1) % state.players.length;
+        
+        if (state.lastRound && nextPlayer === state.lastRoundStartPlayer) {
+          let maxPoints = -1;
+          let winner = null;
+          state.players.forEach((player, idx) => {
+            const points = player.cards.reduce((sum, c) => sum + c.points, 0) +
+                           player.nobles.reduce((sum, n) => sum + n.points, 0);
+            if (points > maxPoints) {
+              maxPoints = points;
+              winner = idx;
+            }
+          });
+          state.winner = winner;
+          state.phase = 'ended';
+          state.log.push(`游戏结束！${state.players[winner].name} 以 ${maxPoints} 分获胜！`);
+        } else {
+          state.currentPlayer = nextPlayer;
+        }
+
+        return state;
+      };
+
+      const getPlayerPower = (player) => {
+        const power = { ...player.gems };
+        player.cards.forEach(card => {
+          power[card.bonus] = (power[card.bonus] || 0) + 1;
+        });
+        return power;
+      };
+
+      const canAffordCard = (player, card) => {
+        const power = getPlayerPower(player);
+        let goldNeeded = 0;
+        
+        for (const [gemType, cost] of Object.entries(card.cost)) {
+          const available = power[gemType] || 0;
+          if (available < cost) {
+            goldNeeded += cost - available;
+          }
+        }
+        
+        return goldNeeded <= (player.gems.gold || 0);
+      };
+
+      const canClaimNoble = (player, noble) => {
+        const bonuses = {};
+        GEM_TYPES.forEach(gem => bonuses[gem] = 0);
+        player.cards.forEach(card => bonuses[card.bonus]++);
+        
+        return Object.entries(noble.requirement).every(
+          ([gemType, count]) => (bonuses[gemType] || 0) >= count
+        );
+      };
+
+      // Actions
+      const takeGems = () => {
+        if (!gameState || gameState.currentPlayer !== localPlayerId) return;
+        
+        const selectedTypes = Object.keys(selectedGems).filter(g => selectedGems[g] > 0);
+        const totalSelected = Object.values(selectedGems).reduce((a, b) => a + b, 0);
+        
+        const isDoubleTake = selectedTypes.length === 1 && selectedGems[selectedTypes[0]] === 2;
+        const isTripleTake = selectedTypes.length === 3 && totalSelected === 3;
+        
+        if (!isDoubleTake && !isTripleTake) {
+          setError('请选择3种不同颜色各1个，或同色2个（需有4个以上）');
+          return;
+        }
+        
+        if (isDoubleTake && gameState.gems[selectedTypes[0]] < 4) {
+          setError('同色取2个需要该颜色有4个以上');
+          return;
+        }
+
+        sendAction({
+          type: 'takeGems',
+          playerId: localPlayerId,
+          gems: selectedGems
+        });
+
+        setSelectedGems({});
+        setActionMode(null);
+        setError('');
+      };
+
+      const buyCard = (card, fromReserve = false) => {
+        if (!gameState || gameState.currentPlayer !== localPlayerId) return;
+        
+        const player = gameState.players[localPlayerId];
+        if (!canAffordCard(player, card)) {
+          setError('宝石不足！');
+          return;
+        }
+
+        sendAction({
+          type: 'buyCard',
+          playerId: localPlayerId,
+          cardId: card.id,
+          level: card.level,
+          fromReserve
+        });
+
+        setActionMode(null);
+        setError('');
+      };
+
+      const reserveCard = (card, fromDeck = false, level = 1) => {
+        if (!gameState || gameState.currentPlayer !== localPlayerId) return;
+        
+        const player = gameState.players[localPlayerId];
+        if (player.reserved.length >= 3) {
+          setError('最多只能保留3张卡！');
+          return;
+        }
+
+        sendAction({
+          type: 'reserveCard',
+          playerId: localPlayerId,
+          cardId: card?.id,
+          level: card?.level || level,
+          fromDeck
+        });
+
+        setActionMode(null);
+        setError('');
+      };
+
+      const toggleGemSelection = (gemType) => {
+        const current = selectedGems[gemType] || 0;
+        const totalSelected = Object.values(selectedGems).reduce((a, b) => a + b, 0);
+        const typesSelected = Object.keys(selectedGems).filter(g => selectedGems[g] > 0).length;
+        
+        if (current === 0) {
+          if (typesSelected === 0) {
+            setSelectedGems({ ...selectedGems, [gemType]: 1 });
+          } else if (typesSelected === 1 && totalSelected === 1) {
+            const existingType = Object.keys(selectedGems).find(g => selectedGems[g] > 0);
+            if (gemType === existingType && gameState.gems[gemType] >= 4) {
+              setSelectedGems({ ...selectedGems, [gemType]: 2 });
+            } else if (gemType !== existingType) {
+              setSelectedGems({ ...selectedGems, [gemType]: 1 });
+            }
+          } else if (typesSelected === 2 && totalSelected === 2) {
+            setSelectedGems({ ...selectedGems, [gemType]: 1 });
+          }
+        } else {
+          const newSelected = { ...selectedGems };
+          delete newSelected[gemType];
+          setSelectedGems(newSelected);
+        }
+      };
+
+      // Room creation
+      const createRoom = () => {
+        const code = generateRoomCode();
+        setRoomCode(code);
+        isHostRef.current = true;
+        setLocalPlayerId(0);
+        
+        const seed = Math.floor(Math.random() * 1000000);
+        const newGame = initializeGame(playerCount, seed);
+        newGame.players[0].name = playerName || '房主';
+        newGame.players[0].connected = true;
+        
+        if (playerCount === 1) {
+          newGame.phase = 'playing';
+        }
+        
+        setGameState(newGame);
+
+        const peer = new Peer(`splendor-${code}`, {
+          debug: 0
+        });
+        
+        peer.on('open', () => {
+          setConnectionStatus('hosting');
+          setScreen('lobby');
+        });
+
+        peer.on('connection', (conn) => {
+          conn.on('open', () => {
+            connectionsRef.current.push(conn);
+            
+            conn.on('data', (data) => {
+              const msg = JSON.parse(data);
+              if (msg.type === 'action') {
+                handleAction(msg.data);
+              } else if (msg.type === 'join') {
+                const playerId = gameState?.players.findIndex(p => !p.connected) ?? -1;
+                if (playerId >= 0) {
+                  conn.send(JSON.stringify({ 
+                    type: 'assignId', 
+                    playerId,
+                    state: gameState
+                  }));
+                  handleAction({
+                    type: 'playerJoin',
+                    playerId,
+                    name: msg.name
+                  });
+                }
+              }
+            });
+
+            conn.on('close', () => {
+              connectionsRef.current = connectionsRef.current.filter(c => c !== conn);
+            });
+          });
+        });
+
+        peer.on('error', (err) => {
+          console.error('Peer error:', err);
+          setError('连接错误，请刷新重试');
+        });
+
+        peerRef.current = peer;
+      };
+
+      const joinRoom = () => {
+        if (!inputRoomCode) {
+          setError('请输入房间号');
+          return;
+        }
+        
+        const code = inputRoomCode.toUpperCase();
+        setRoomCode(code);
+        isHostRef.current = false;
+
+        const peer = new Peer();
+        
+        peer.on('open', () => {
+          setConnectionStatus('connecting');
+          
+          const conn = peer.connect(`splendor-${code}`, { reliable: true });
+          
+          conn.on('open', () => {
+            connectionsRef.current.push(conn);
+            conn.send(JSON.stringify({ 
+              type: 'join', 
+              name: playerName || '玩家' 
+            }));
+          });
+
+          conn.on('data', (data) => {
+            const msg = JSON.parse(data);
+            if (msg.type === 'assignId') {
+              setLocalPlayerId(msg.playerId);
+              setGameState(msg.state);
+              setConnectionStatus('connected');
+              setScreen('lobby');
+            } else if (msg.type === 'state') {
+              setGameState(msg.data);
+              if (msg.data.phase === 'playing' || msg.data.phase === 'ended') {
+                setScreen('game');
+              }
+            }
+          });
+
+          conn.on('close', () => {
+            setConnectionStatus('disconnected');
+            setError('与房主断开连接');
+          });
+        });
+
+        peer.on('error', (err) => {
+          console.error('Peer error:', err);
+          setError('无法连接到房间，请检查房间号');
+        });
+
+        peerRef.current = peer;
+      };
+
+      const startGame = () => {
+        if (!gameState) return;
+        
+        const newState = { ...gameState, phase: 'playing' };
+        newState.log.push('游戏开始！');
+        setGameState(newState);
+        setScreen('game');
+      };
+
+      const startLocalGame = () => {
+        const seed = Math.floor(Math.random() * 1000000);
+        const newGame = initializeGame(playerCount, seed);
+        newGame.phase = 'playing';
+        for (let i = 0; i < playerCount; i++) {
+          newGame.players[i].connected = true;
+        }
+        newGame.log = ['本地游戏开始！'];
+        setGameState(newGame);
+        setLocalPlayerId(0);
+        setRoomCode('');
+        isHostRef.current = true;
+        setScreen('game');
+      };
+
+      // Switch local player (for local multiplayer)
+      const switchPlayer = () => {
+        if (!roomCode && gameState) {
+          setLocalPlayerId(gameState.currentPlayer);
+        }
+      };
+
+      // Menu Screen
+      if (screen === 'menu') {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center p-4">
+            <div className="bg-gray-800/80 backdrop-blur rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl">
+              <h1 className="text-3xl sm:text-4xl font-bold text-center mb-2 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+                璀璨宝石
+              </h1>
+              <p className="text-gray-400 text-center mb-6 sm:mb-8">Splendor Online</p>
+              
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="输入你的名字"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                
+                <div className="flex items-center gap-4">
+                  <span className="text-white">玩家人数:</span>
+                  {[2, 3, 4].map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setPlayerCount(n)}
+                      className={`w-10 h-10 rounded-lg font-bold transition-all ${
+                        playerCount === n
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                
+                <button
+                  onClick={createRoom}
+                  className="w-full py-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold hover:opacity-90 transition-opacity"
+                >
+                  🌐 创建在线房间
+                </button>
+                
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="输入房间号"
+                    value={inputRoomCode}
+                    onChange={(e) => setInputRoomCode(e.target.value.toUpperCase())}
+                    className="flex-1 px-4 py-3 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 uppercase"
+                    maxLength={4}
+                  />
+                  <button
+                    onClick={joinRoom}
+                    className="px-6 py-3 rounded-lg bg-green-600 text-white font-bold hover:bg-green-500 transition-colors"
+                  >
+                    加入
+                  </button>
+                </div>
+                
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-600"></div>
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="px-4 bg-gray-800 text-gray-400 text-sm">或者</span>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={startLocalGame}
+                  className="w-full py-3 rounded-lg bg-gray-700 text-white font-bold hover:bg-gray-600 transition-colors"
+                >
+                  📱 本地多人（同一设备）
+                </button>
+              </div>
+              
+              {error && (
+                <p className="mt-4 text-red-400 text-center">{error}</p>
+              )}
+
+              <div className="mt-6 p-4 bg-gray-700/50 rounded-lg">
+                <h3 className="text-white font-bold mb-2">游戏规则简介</h3>
+                <ul className="text-gray-300 text-sm space-y-1">
+                  <li>• 拿取宝石：3种不同色各1个，或同色2个</li>
+                  <li>• 购买卡牌：用宝石购买，获得永久折扣</li>
+                  <li>• 保留卡牌：最多3张，获得1个黄金</li>
+                  <li>• 目标：首先达到15分获胜</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Lobby Screen
+      if (screen === 'lobby') {
+        const connectedCount = gameState?.players.filter(p => p.connected).length || 0;
+        
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center p-4">
+            <div className="bg-gray-800/80 backdrop-blur rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl">
+              <h2 className="text-2xl font-bold text-white mb-2">等待玩家加入</h2>
+              <div className="flex items-center gap-2 mb-6">
+                <span className="text-gray-400">房间号:</span>
+                <span className="text-yellow-400 font-mono text-2xl tracking-wider">{roomCode}</span>
+                <button
+                  onClick={() => navigator.clipboard?.writeText(roomCode)}
+                  className="text-gray-400 hover:text-white text-sm ml-2"
+                >
+                  📋 复制
+                </button>
+              </div>
+              
+              <div className="space-y-2 mb-6">
+                {gameState?.players.map((player, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-lg flex items-center gap-2 ${
+                      player.connected ? 'bg-green-900/50' : 'bg-gray-700/50'
+                    }`}
+                  >
+                    <span className={`text-xl ${player.connected ? 'text-green-400' : 'text-gray-500'}`}>
+                      {player.connected ? '✓' : '○'}
+                    </span>
+                    <span className="text-white flex-1">{player.name}</span>
+                    {idx === localPlayerId && <span className="text-blue-400 text-sm">（你）</span>}
+                    {idx === 0 && <span className="text-yellow-400 text-sm">房主</span>}
+                  </div>
+                ))}
+              </div>
+
+              <div className={`p-3 rounded-lg mb-4 ${
+                connectionStatus === 'hosting' ? 'bg-purple-900/50' :
+                connectionStatus === 'connected' ? 'bg-green-900/50' : 'bg-yellow-900/50'
+              }`}>
+                <span className="text-white text-sm">
+                  {connectionStatus === 'hosting' && '🟢 房间已创建，等待其他玩家加入...'}
+                  {connectionStatus === 'connected' && '🟢 已连接到房间'}
+                  {connectionStatus === 'connecting' && '🟡 正在连接...'}
+                </span>
+              </div>
+              
+              {isHostRef.current && (
+                <button
+                  onClick={startGame}
+                  disabled={connectedCount < 2}
+                  className={`w-full py-3 rounded-lg font-bold transition-all ${
+                    connectedCount >= 2
+                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:opacity-90'
+                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {connectedCount >= 2 ? '开始游戏' : `等待玩家 (${connectedCount}/${playerCount})`}
+                </button>
+              )}
+              
+              {!isHostRef.current && (
+                <p className="text-gray-400 text-center">等待房主开始游戏...</p>
+              )}
+              
+              <p className="text-gray-500 text-sm text-center mt-4">
+                分享房间号给朋友，让他们加入游戏
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      // Game Screen
+      if (!gameState) return null;
+
+      const currentPlayer = gameState.players[localPlayerId];
+      const isMyTurn = gameState.currentPlayer === localPlayerId && gameState.phase === 'playing';
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-2 sm:p-4">
+          <div className="max-w-6xl mx-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-white">璀璨宝石</h1>
+                {roomCode && <p className="text-gray-400 text-xs sm:text-sm">房间: {roomCode}</p>}
+              </div>
+              {!roomCode && (
+                <button
+                  onClick={switchPlayer}
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-500"
+                >
+                  切换到当前玩家
+                </button>
+              )}
+              {gameState.phase === 'ended' && (
+                <div className="bg-yellow-500 text-black px-4 py-2 rounded-lg font-bold animate-pulse">
+                  🎉 {gameState.players[gameState.winner].name} 获胜！
+                </div>
+              )}
+            </div>
+
+            {/* Main Game Area */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-4">
+              {/* Left: Cards and Nobles */}
+              <div className="lg:col-span-3 space-y-3 sm:space-y-4">
+                {/* Nobles */}
+                <div className="bg-gray-800/50 rounded-xl p-3 sm:p-4">
+                  <h3 className="text-white font-bold mb-2 text-sm sm:text-base">贵族</h3>
+                  <div className="flex gap-2 flex-wrap">
+                    {gameState.nobles.map((noble) => (
+                      <Noble
+                        key={noble.id}
+                        noble={noble}
+                        canClaim={isMyTurn && canClaimNoble(currentPlayer, noble)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cards */}
+                {[3, 2, 1].map(level => {
+                  const displayKey = `level${level}Display`;
+                  const deckKey = `level${level}Deck`;
+                  return (
+                    <div key={level} className="bg-gray-800/50 rounded-xl p-3 sm:p-4">
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <div
+                          onClick={() => isMyTurn && actionMode === 'reserve' && reserveCard(null, true, level)}
+                          className={`w-20 h-28 sm:w-24 sm:h-32 rounded-lg flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-105
+                            ${level === 1 ? 'bg-green-900' : level === 2 ? 'bg-yellow-900' : 'bg-blue-900'}
+                            ${actionMode === 'reserve' ? 'ring-2 ring-yellow-400' : ''}
+                          `}
+                        >
+                          <span className="text-white font-bold text-lg sm:text-xl">Lv.{level}</span>
+                          <span className="text-gray-300 text-xs sm:text-sm">{gameState[deckKey].length}张</span>
+                        </div>
+                        <div className="flex gap-1.5 sm:gap-2 flex-wrap flex-1">
+                          {gameState[displayKey].map(card => (
+                            <Card
+                              key={card.id}
+                              card={card}
+                              canAfford={isMyTurn && canAffordCard(currentPlayer, card)}
+                              onClick={() => {
+                                if (!isMyTurn) return;
+                                if (actionMode === 'reserve') {
+                                  reserveCard(card);
+                                } else if (canAffordCard(currentPlayer, card)) {
+                                  buyCard(card);
+                                }
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Right: Gems and Actions */}
+              <div className="space-y-3 sm:space-y-4">
+                {/* Available Gems */}
+                <div className="bg-gray-800/50 rounded-xl p-3 sm:p-4">
+                  <h3 className="text-white font-bold mb-2 sm:mb-3 text-sm sm:text-base">可用宝石</h3>
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    {GEM_TYPES.map(gemType => (
+                      <GemToken
+                        key={gemType}
+                        type={gemType}
+                        count={gameState.gems[gemType]}
+                        selectable={isMyTurn && actionMode === 'takeGems' && gameState.gems[gemType] > 0}
+                        selected={selectedGems[gemType] > 0}
+                        onClick={() => toggleGemSelection(gemType)}
+                      />
+                    ))}
+                    <GemToken type="gold" count={gameState.gems.gold} selectable={false} />
+                  </div>
+                </div>
+
+                {/* Actions */}
+                {isMyTurn && (
+                  <div className="bg-gray-800/50 rounded-xl p-3 sm:p-4 space-y-2">
+                    <h3 className="text-white font-bold mb-2 text-sm sm:text-base">你的回合</h3>
+                    
+                    <button
+                      onClick={() => setActionMode(actionMode === 'takeGems' ? null : 'takeGems')}
+                      className={`w-full py-2 rounded-lg font-bold transition-colors text-sm sm:text-base ${
+                        actionMode === 'takeGems'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                    >
+                      💎 拿取宝石
+                    </button>
+                    
+                    {actionMode === 'takeGems' && Object.keys(selectedGems).length > 0 && (
+                      <button
+                        onClick={takeGems}
+                        className="w-full py-2 rounded-lg bg-green-600 text-white font-bold hover:bg-green-500 text-sm sm:text-base"
+                      >
+                        确认拿取
+                      </button>
+                    )}
+                    
+                    <button
+                      onClick={() => setActionMode(actionMode === 'reserve' ? null : 'reserve')}
+                      className={`w-full py-2 rounded-lg font-bold transition-colors text-sm sm:text-base ${
+                        actionMode === 'reserve'
+                          ? 'bg-yellow-600 text-white'
+                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                      disabled={currentPlayer.reserved.length >= 3}
+                    >
+                      📌 保留卡牌 ({currentPlayer.reserved.length}/3)
+                    </button>
+                    
+                    <p className="text-gray-400 text-xs sm:text-sm">
+                      {actionMode === null && '点击卡牌购买，或选择其他行动'}
+                      {actionMode === 'takeGems' && '选择3种不同色各1个，或同色2个'}
+                      {actionMode === 'reserve' && '点击卡牌或牌堆保留'}
+                    </p>
+                  </div>
+                )}
+
+                {!isMyTurn && gameState.phase === 'playing' && (
+                  <div className="bg-gray-800/50 rounded-xl p-3 sm:p-4">
+                    <p className="text-gray-400 text-center text-sm sm:text-base">
+                      等待 {gameState.players[gameState.currentPlayer].name} 行动...
+                    </p>
+                  </div>
+                )}
+
+                {/* Reserved Cards */}
+                {currentPlayer.reserved.length > 0 && (
+                  <div className="bg-gray-800/50 rounded-xl p-3 sm:p-4">
+                    <h3 className="text-white font-bold mb-2 text-sm sm:text-base">你的保留卡</h3>
+                    <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+                      {currentPlayer.reserved.map(card => (
+                        <Card
+                          key={card.id}
+                          card={card}
+                          canAfford={isMyTurn && canAffordCard(currentPlayer, card)}
+                          isReserved
+                          small
+                          onClick={() => {
+                            if (isMyTurn && canAffordCard(currentPlayer, card)) {
+                              buyCard(card, true);
+                            }
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Game Log */}
+                <div className="bg-gray-800/50 rounded-xl p-3 sm:p-4 max-h-32 sm:max-h-40 overflow-y-auto">
+                  <h3 className="text-white font-bold mb-2 text-sm sm:text-base">游戏记录</h3>
+                  <div className="space-y-1">
+                    {gameState.log.slice(-5).map((msg, idx) => (
+                      <p key={idx} className="text-gray-400 text-xs sm:text-sm">{msg}</p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Player Boards */}
+            <div className="mt-3 sm:mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+              {gameState.players.map((player, idx) => (
+                <PlayerBoard
+                  key={idx}
+                  player={player}
+                  isCurrentPlayer={gameState.currentPlayer === idx}
+                  isLocalPlayer={idx === localPlayerId}
+                />
+              ))}
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg text-sm sm:text-base z-50">
+                {error}
+                <button onClick={() => setError('')} className="ml-4 font-bold">×</button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<Splendor />, document.getElementById('root'));
+  </script>
+</body>
+</html>
